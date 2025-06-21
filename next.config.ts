@@ -4,8 +4,7 @@ import createNextIntlPlugin from 'next-intl/plugin';
 const withNextIntl = createNextIntlPlugin();
 
 const nextConfig: NextConfig = {
-  output: 'standalone',
-  /* config options here */
+  // 移除 standalone 输出，使用默认配置
 };
 
 export default withNextIntl(nextConfig);
