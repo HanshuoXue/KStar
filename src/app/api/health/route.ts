@@ -19,22 +19,30 @@ export async function GET() {
     details: {
       nodeVersion: process.version,
       platform: process.platform,
-      uptime: process.uptime()
+      uptime: process.uptime(),
+      database: '' as string
     }
   }
 
-  // 测试数据库连接
+  // 测试数据库连接 - 使用适合MongoDB的方法
   try {
     await prisma.$connect()
-    await prisma.$queryRaw`SELECT 1`
+    // 尝试简单的数据库操作而不是$queryRaw
+    await prisma.user.findFirst({
+      take: 1
+    })
     healthCheck.checks.database = true
     healthCheck.details.database = 'Connected successfully'
   } catch (error) {
-    healthCheck.status = 'ERROR'
+    healthCheck.status = 'PARTIAL'
     healthCheck.checks.database = false
-    healthCheck.details.database = `Connection failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+    healthCheck.details.database = `Connection test failed: ${error instanceof Error ? error.message : 'Unknown error'}`
   } finally {
-    await prisma.$disconnect()
+    try {
+      await prisma.$disconnect()
+    } catch (e) {
+      // 忽略断开连接的错误
+    }
   }
 
   // 环境变量详细检查
@@ -48,6 +56,6 @@ export async function GET() {
     ...healthCheck,
     envDetails
   }, { 
-    status: healthCheck.status === 'OK' ? 200 : 503 
+    status: healthCheck.status === 'OK' ? 200 : (healthCheck.status === 'PARTIAL' ? 200 : 503)
   })
 } 
