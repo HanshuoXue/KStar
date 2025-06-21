@@ -1,0 +1,513 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+/* =========
+   枚举类型
+   ========= */
+enum Difficulty { 
+  EASY 
+  MEDIUM 
+  HARD 
+}
+
+enum PlaylistType { 
+  CUSTOM 
+  RECOMMENDED 
+  FAVORITES 
+  SYSTEM 
+}
+
+enum UserSongStatus { 
+  ACTIVE 
+  ARCHIVED 
+  HIDDEN 
+}
+
+enum SourceType { 
+  YOUTUBE 
+  BILIBILI 
+  NETEASE 
+  QQ 
+  LOCAL 
+}
+
+enum PrefDifficulty { 
+  BEGINNER 
+  INTERMEDIATE 
+  ADVANCED 
+}
+
+enum TaskStatus { 
+  PENDING 
+  PROCESSING 
+  COMPLETED 
+  FAILED 
+}
+
+enum SubscriptionType { 
+  FREE 
+  PREMIUM 
+  VIP 
+}
+
+enum ShareType { 
+  PUBLIC 
+  FRIENDS 
+  PRIVATE 
+}
+
+/* =========
+   用户
+   ========= */
+model User {
+  id            String           @id @default(auto()) @map("_id") @db.ObjectId
+  clerkId       String           @unique               // Clerk 身份 ID
+  email         String           @unique               // 邮箱
+  firstName     String                                // 名
+  lastName      String                                // 姓
+  avatar        String?                               // 头像URL
+  bio           String?                               // 简介
+  
+  // 订阅信息
+  subscription  SubscriptionType @default(FREE)       // 订阅类型
+  subscriptionExpire DateTime?                        // 订阅到期时间
+  
+  // 关联关系
+  vocalRange    VocalRange?                           // 一对一：音域
+  preferences   UserPreferences?                      // 一对一：偏好
+  stats         UserStats?                            // 一对一：统计
+  playlists     Playlist[]                            // 播放列表
+  songs         UserSong[]                            // 分析过的歌曲
+  tasks         ProcessingTask[]                      // 处理任务
+  
+  // 社交功能
+  following     Follow[] @relation("Follower")         // 我关注的
+  followers     Follow[] @relation("Following")        // 关注我的
+  
+  // 互动记录
+  likes         PlaylistLike[]                        // 点赞的歌单
+  comments      Comment[]                             // 评论
+  
+  isActive      Boolean          @default(true)       // 账户状态
+  createdAt     DateTime         @default(now())      // 创建时间
+  updatedAt     DateTime         @updatedAt           // 更新时间
+
+  @@map("users")
+}
+
+/* =========
+   音域
+   ========= */
+model VocalRange {
+  id               String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId           String   @unique @db.ObjectId
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // 音域数据 (Hz)
+  lowest           Float    @default(0)                // 绝对最低频
+  highest          Float    @default(0)                // 绝对最高频
+  comfortableLow   Float    @default(0)                // 舒适低频
+  comfortableHigh  Float    @default(0)                // 舒适高频
+  
+  // 音域标签 (如：女高音、男中音等)
+  voiceType        String?                             // 声部类型
+  noteRangeLow     String?                             // 最低音符 (如: C3)
+  noteRangeHigh    String?                             // 最高音符 (如: C5)
+  
+  // 分析统计
+  analysisCount    Int      @default(0)                // 分析次数
+  confidenceScore  Float    @default(0)                // 可信度评分
+  lastAnalyzed     DateTime?                           // 最后分析时间
+
+  analysisHistory  AnalysisRecord[]                    // 录音分析历史
+
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@map("vocal_ranges")
+}
+
+/* =========
+   用户偏好
+   ========= */
+model UserPreferences {
+  id               String          @id @default(auto()) @map("_id") @db.ObjectId
+  userId           String          @unique @db.ObjectId
+  user             User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // 基础偏好
+  language         String          @default("zh")         // 界面语言
+  genres           String[]        @default([])           // 喜好风格
+  difficulty       PrefDifficulty  @default(BEGINNER)     // 目标难度
+  
+  // 推荐设置
+  autoPlaylist     Boolean         @default(true)         // 自动歌单
+  matchThreshold   Float           @default(0.7)          // 音域匹配阈值 (0-1)
+  preferredKeys    String[]        @default([])           // 偏好调性
+  avoidKeys        String[]        @default([])           // 避免调性
+  
+  // 显示偏好
+  showDifficulty   Boolean         @default(true)         // 显示难度
+  showMatchScore   Boolean         @default(true)         // 显示匹配分
+  defaultSort      String          @default("match")      // 默认排序
+  
+  // 通知设置
+  emailNotifications Boolean        @default(true)         // 邮件通知
+  pushNotifications Boolean         @default(true)         // 推送通知
+  weeklyReport     Boolean          @default(true)         // 周报
+
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  @@map("user_preferences")
+}
+
+/* =========
+   用户统计
+   ========= */
+model UserStats {
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId          String   @unique @db.ObjectId
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // 基础统计
+  songsAnalyzed   Int      @default(0)                   // 分析歌曲数
+  totalListenTime Int      @default(0)                   // 总听歌时长(秒)
+  favoriteKey     String?                                // 最常用调性
+  lastActive      DateTime @default(now())               // 最后活跃
+  
+  // 使用统计  
+  weeklyUsage     Int      @default(0)                   // 周使用次数
+  monthlyUsage    Int      @default(0)                   // 月使用次数
+  totalSessions   Int      @default(0)                   // 总会话数
+  
+  // 社交统计
+  playlistsCreated Int      @default(0)                   // 创建歌单数
+  playlistsShared  Int       @default(0)                   // 分享次数
+  followersCount   Int       @default(0)                   // 粉丝数
+  followingCount   Int       @default(0)                   // 关注数
+  
+  // 成就数据
+  achievementPoints Int       @default(0)                   // 成就点数
+  currentStreak    Int        @default(0)                   // 连续使用天数
+  maxStreak        Int        @default(0)                   // 最大连续天数
+
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+
+  @@map("user_stats")
+}
+
+/* =========
+   歌曲
+   ========= */
+model Song {
+  id            String        @id @default(auto()) @map("_id") @db.ObjectId
+  title         String                                    // 歌名
+  artist        String                                    // 歌手
+  album         String?                                   // 专辑
+  duration      Int?                                      // 时长(秒)
+  language      String?                                   // 歌曲语言
+  genre         String?                                   // 风格
+  releaseYear   Int?                                      // 发行年份
+
+  // 分析 & 关联
+  audioData     AudioAnalysis?                            // 一对一：分析
+  userSongs     UserSong[]                                // 用户歌曲
+  playlistItems PlaylistItem[]                            // 属于的歌单
+  comments      Comment[]                                 // 评论
+
+  // 来源信息
+  sourceType    SourceType                                // 音源类型
+  sourceId      String                                    // 源站唯一ID
+  sourceUrl     String?                                   // 原链接
+  originalTitle String?                                   // 原始标题
+
+  // 文件存储
+  fileUrl       String?                                   // S3 音频文件
+  thumbnailUrl  String?                                   // 封面图片
+  waveformUrl   String?                                   // 波形图片
+  
+  // 统计数据
+  downloadCount Int           @default(0)                 // 下载次数
+  analysisCount Int           @default(0)                 // 分析次数
+  
+  // 状态
+  isProcessed   Boolean       @default(false)             // 是否已处理
+  isPublic      Boolean       @default(true)              // 是否公开
+
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  @@unique([sourceId, sourceType])
+  @@map("songs")
+}
+
+/* =========
+   音频分析
+   ========= */
+model AudioAnalysis {
+  id              String     @id @default(auto()) @map("_id") @db.ObjectId
+  songId          String     @unique @db.ObjectId
+  song            Song       @relation(fields: [songId], references: [id], onDelete: Cascade)
+
+  // 基础分析
+  key             String              // 调性 (如: C, Dm, F#)
+  tempo           Float               // BPM
+  timeSignature   String?             // 拍号 (如: 4/4)
+  
+  // Pitch 分析
+  pitchMin        Float               // 最低Hz
+  pitchMax        Float               // 最高Hz
+  pitchAverage    Float               // 平均Hz
+  pitchVariance   Float               // 方差
+  pitchMedian     Float               // 中位数
+  
+  // 难度评估
+  difficulty      Difficulty          // 难度等级
+  complexityScore Float               // 复杂度评分
+  vocalDemand     Float               // 声域要求
+  breathingDemand Float               // 换气要求
+  
+  // 详细数据 (存储在S3的大文件)
+  pitchCurveUrl   String?             // Pitch曲线数据URL
+  spectrogramUrl  String?             // 频谱图URL
+  rawDataUrl      String?             // 原始分析数据URL
+  
+  // 特征标签
+  hasVibrato      Boolean @default(false)  // 是否有颤音
+  hasRuns         Boolean @default(false)  // 是否有跑调
+  hasHighNotes    Boolean @default(false)  // 是否有高音
+  
+  // 分析版本和状态
+  analysisVersion String   @default("1.0")    // 分析算法版本
+  processingTime  Int?                        // 处理时间(秒)
+  confidence      Float    @default(0)        // 分析可信度
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("audio_analyses")
+}
+
+/* =========
+   用户 ↔ 歌曲
+   ========= */
+model UserSong {
+  id             String         @id @default(auto()) @map("_id") @db.ObjectId
+  userId         String         @db.ObjectId
+  songId         String         @db.ObjectId
+  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  song           Song           @relation(fields: [songId], references: [id], onDelete: Cascade)
+
+  // 匹配数据
+  matchScore     Float          @default(0)              // 0-100 匹配分
+  matchReason    String?                                 // 匹配原因
+  personalRating Int?                                    // 1-5 个人评分
+  
+  // 使用统计
+  listenCount    Int            @default(0)              // 听歌次数
+  totalTime      Int            @default(0)              // 总听歌时长
+  lastPlayed     DateTime?                               // 最近播放
+  practiceCount  Int            @default(0)              // 练习次数
+  
+  // 状态和标签
+  isFavorite     Boolean        @default(false)          // 收藏
+  status         UserSongStatus @default(ACTIVE)         // 状态
+  tags           String[]       @default([])             // 个人标签
+  notes          String?                                 // 个人笔记
+
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  @@unique([userId, songId])
+  @@map("user_songs")
+}
+
+/* ========
+   播放列表
+   ======== */
+model Playlist {
+  id          String       @id @default(auto()) @map("_id") @db.ObjectId
+  userId      String       @db.ObjectId
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // 基础信息
+  title       String                                      // 标题
+  description String       @default("")                   // 描述
+  coverUrl    String?                                     // 封面
+
+  // 设置
+  shareType   ShareType    @default(PRIVATE)              // 分享类型
+  isSystem    Boolean      @default(false)                // 系统生成
+  type        PlaylistType @default(CUSTOM)               // 类型
+
+  // 标签和分类
+  tags        String[]     @default([])                   // 标签
+  genre       String?                                     // 主要风格
+  mood        String?                                     // 情绪标签
+  targetLevel String?                                     // 目标水平
+
+  // 统计数据
+  playCount   Int          @default(0)                    // 播放量
+  shareCount  Int          @default(0)                    // 分享量
+  likeCount   Int          @default(0)                    // 点赞数
+  itemCount   Int          @default(0)                    // 歌曲数量
+  totalDuration Int        @default(0)                    // 总时长
+
+  // 关联数据
+  items       PlaylistItem[]                              // 歌曲列表
+  likes       PlaylistLike[]                              // 点赞记录
+  comments    Comment[]                                   // 评论
+
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@map("playlists")
+}
+
+/* ===============
+   播放列表歌曲项
+   =============== */
+model PlaylistItem {
+  id         String    @id @default(auto()) @map("_id") @db.ObjectId
+  playlistId String    @db.ObjectId
+  songId     String    @db.ObjectId
+  playlist   Playlist  @relation(fields: [playlistId], references: [id], onDelete: Cascade)
+  song       Song      @relation(fields: [songId], references: [id], onDelete: Cascade)
+
+  order      Int                                          // 排序
+  addedBy    String?                                      // 添加者ID
+  note       String?                                      // 备注
+
+  createdAt  DateTime  @default(now())
+
+  @@unique([playlistId, songId])
+  @@map("playlist_items")
+}
+
+/* ==========
+   录音分析
+   ========== */
+model AnalysisRecord {
+  id            String      @id @default(auto()) @map("_id") @db.ObjectId
+  vocalRangeId  String      @db.ObjectId
+  vocalRange    VocalRange  @relation(fields: [vocalRangeId], references: [id], onDelete: Cascade)
+
+  // 录音信息
+  recordingUrl  String?                                   // 用户录音文件
+  recordingDuration Int?                                  // 录音时长(秒)
+  recordingType String     @default("live")               // 录音类型
+
+  // 分析结果
+  detectedLow   Float                                     // 识别最低频
+  detectedHigh  Float                                     // 识别最高频
+  confidence    Float      @default(0)                    // 可信度 0-1
+  analysisData  Json                                      // 详细分析数据
+
+  // 元数据
+  deviceInfo    String?                                   // 设备信息
+  sampleRate    Int?                                      // 采样率
+  bitRate       Int?                                      // 比特率
+
+  createdAt     DateTime   @default(now())
+
+  @@map("analysis_records")
+}
+
+/* ==========
+   处理任务
+   ========== */
+model ProcessingTask {
+  id            String      @id @default(auto()) @map("_id") @db.ObjectId
+  userId        String      @db.ObjectId
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // 任务信息
+  taskType      String                                    // download, analyze, etc.
+  status        TaskStatus  @default(PENDING)             // 任务状态
+  progress      Float       @default(0)                   // 进度 0-100
+  
+  // 源数据
+  sourceType    SourceType                                // 来源类型
+  sourceUrl     String                                    // 源URL
+  sourceId      String?                                   // 源ID
+  
+  // 结果
+  resultSongId  String?     @db.ObjectId                  // 生成的歌曲ID
+  errorMessage  String?                                   // 错误信息
+  
+  // 元数据
+  startedAt     DateTime?                                 // 开始时间
+  completedAt   DateTime?                                 // 完成时间
+  retryCount    Int         @default(0)                   // 重试次数
+
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@map("processing_tasks")
+}
+
+/* ==========
+   关注关系
+   ========== */
+model Follow {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  followerId  String   @db.ObjectId                       // 关注者
+  followingId String   @db.ObjectId                       // 被关注者
+  follower    User     @relation("Follower", fields: [followerId], references: [id], onDelete: Cascade)
+  following   User     @relation("Following", fields: [followingId], references: [id], onDelete: Cascade)
+
+  createdAt   DateTime @default(now())
+
+  @@unique([followerId, followingId])
+  @@map("follows")
+}
+
+/* ==========
+   歌单点赞
+   ========== */
+model PlaylistLike {
+  id         String    @id @default(auto()) @map("_id") @db.ObjectId
+  userId     String    @db.ObjectId
+  playlistId String    @db.ObjectId
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  playlist   Playlist  @relation(fields: [playlistId], references: [id], onDelete: Cascade)
+
+  createdAt  DateTime  @default(now())
+
+  @@unique([userId, playlistId])
+  @@map("playlist_likes")
+}
+
+/* =======
+   评论
+   ======== */
+model Comment {
+  id         String    @id @default(auto()) @map("_id") @db.ObjectId
+  userId     String    @db.ObjectId
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // 评论对象 (二选一)
+  songId     String?   @db.ObjectId
+  song       Song?     @relation(fields: [songId], references: [id], onDelete: Cascade)
+  playlistId String?   @db.ObjectId
+  playlist   Playlist? @relation(fields: [playlistId], references: [id], onDelete: Cascade)
+  
+  content    String                                       // 评论内容
+  likeCount  Int       @default(0)                        // 点赞数
+
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@map("comments")
+}

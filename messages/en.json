@@ -1,0 +1,23 @@
+{
+    "common": {
+      "login": "Login",
+      "logout": "Logout", 
+      "signup": "Sign Up",
+      "welcome": "Welcome",
+      "language": "Language"
+    },
+    "home": {
+      "title": "KStar Audio Analysis Platform",
+      "subtitle": "AI-powered audio analysis and vocal range matching platform",
+      "welcomeMessage": "Welcome to KStar",
+      "loginPrompt": "Please login to start using audio analysis features",
+      "welcomeBack": "Welcome back!",
+      "startAnalysis": "Start analyzing your audio files"
+    },
+    "auth": {
+      "signIn": "Sign In",
+      "signUp": "Sign Up", 
+      "signInTitle": "Sign in to KStar",
+      "signUpTitle": "Create your KStar account"
+    }
+  }
