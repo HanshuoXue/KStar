@@ -7,11 +7,24 @@ frontend:
     build:
       commands:
         - npx prisma generate
+        - echo "DATABASE_URL=$DATABASE_URL" >> .env.production
+        - echo "CLERK_SECRET_KEY=$CLERK_SECRET_KEY" >> .env.production
+        - echo "CLERK_WEBHOOK_SECRET=$CLERK_WEBHOOK_SECRET" >> .env.production
+        - echo "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=$NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY" >> .env.production
         - npm run build
   artifacts:
-    baseDirectory: .next
+    baseDirectory: .
     files:
-      - '**/*'
+      - .next/**/*
+      - public/**/*
+      - package.json
+      - package-lock.json
+      - next.config.ts
+      - prisma/schema.prisma
+      - node_modules/.prisma/**/*
+      - node_modules/@prisma/**/*
+      - messages/**/*
+      - .env.production
   cache:
     paths:
       - node_modules/**/*

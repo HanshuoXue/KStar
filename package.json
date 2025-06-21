@@ -6,7 +6,8 @@
     "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "start:amplify": "NODE_ENV=production next start -p 3000"
   },
   "dependencies": {
     "@clerk/localizations": "^3.16.5",
