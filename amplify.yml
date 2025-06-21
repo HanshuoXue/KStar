@@ -17,6 +17,7 @@ frontend:
     files:
       - .next/**/*
       - public/**/*
+      - src/**/*
       - package.json
       - package-lock.json
       - next.config.ts
