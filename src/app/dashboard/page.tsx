@@ -4,7 +4,7 @@ import { useUser } from '@clerk/nextjs'
 import { useEffect, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { useTranslations } from 'next-intl'
+import Image from 'next/image'
 
 interface UserData {
   id: string
@@ -36,7 +36,6 @@ interface UserData {
 
 export default function Dashboard() {
   const { user, isLoaded } = useUser()
-  const t = useTranslations()
   const [userData, setUserData] = useState<UserData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -110,9 +109,11 @@ export default function Dashboard() {
         <div className="mb-8">
           <div className="flex items-center space-x-4">
             {user.imageUrl && (
-              <img 
+              <Image 
                 src={user.imageUrl} 
                 alt="头像" 
+                width={64}
+                height={64}
                 className="w-16 h-16 rounded-full"
               />
             )}

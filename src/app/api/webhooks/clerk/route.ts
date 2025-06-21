@@ -25,7 +25,6 @@ export async function POST(req: Request) {
 
   // 获取请求body
   const payload = await req.text()
-  const body = JSON.parse(payload)
 
   // 创建Svix实例验证webhook
   const wh = new Webhook(WEBHOOK_SECRET)
@@ -75,6 +74,7 @@ export async function POST(req: Request) {
 }
 
 // 处理用户创建事件
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function handleUserCreated(data: any) {
   const { id, email_addresses, first_name, last_name, image_url } = data
 
@@ -147,6 +147,7 @@ async function handleUserCreated(data: any) {
 }
 
 // 处理用户更新事件
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function handleUserUpdated(data: any) {
   const { id, email_addresses, first_name, last_name, image_url } = data
 
@@ -171,6 +172,7 @@ async function handleUserUpdated(data: any) {
 }
 
 // 处理用户删除事件
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function handleUserDeleted(data: any) {
   const { id } = data
 

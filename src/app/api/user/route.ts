@@ -73,7 +73,7 @@ export async function PUT(request: NextRequest) {
     const { vocalRange, preferences, stats, ...userData } = body
     
     // 更新用户基础信息
-    const updateData: any = {}
+    const updateData: Record<string, unknown> = {}
     
     if (userData.bio !== undefined) updateData.bio = userData.bio
     if (userData.avatar !== undefined) updateData.avatar = userData.avatar
