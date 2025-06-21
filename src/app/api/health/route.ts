@@ -40,7 +40,7 @@ export async function GET() {
   } finally {
     try {
       await prisma.$disconnect()
-    } catch (e) {
+    } catch {
       // 忽略断开连接的错误
     }
   }
