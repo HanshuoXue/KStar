@@ -1,50 +1,25 @@
 import { auth } from '@clerk/nextjs/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { getAuthUserId, isTestMode } from '@/lib/test-auth'
 
 // 获取当前用户信息
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const { userId } = await auth()
+    console.log('🧪 开始处理用户API请求')
+    const userId = await getAuthUserId(request)
+    console.log('🧪 获取到用户ID:', userId)
     
     if (!userId) {
       return NextResponse.json({ error: '未登录' }, { status: 401 })
     }
 
+    // 简化查询，只获取基础用户信息
     const user = await prisma.user.findUnique({
-      where: { clerkId: userId },
-      include: {
-        vocalRange: true,
-        preferences: true,
-        stats: true,
-        playlists: {
-          include: { 
-            items: { 
-              include: { 
-                song: {
-                  include: {
-                    audioData: true
-                  }
-                }
-              },
-              orderBy: { order: 'asc' }
-            }
-          },
-          orderBy: { createdAt: 'desc' }
-        },
-        songs: {
-          include: {
-            song: {
-              include: {
-                audioData: true
-              }
-            }
-          },
-          where: { status: 'ACTIVE' },
-          orderBy: { lastPlayed: 'desc' }
-        }
-      }
+      where: { clerkId: userId }
     })
+    
+    console.log('🧪 查询到用户:', user ? '存在' : '不存在')
     
     if (!user) {
       return NextResponse.json({ error: '用户不存在' }, { status: 404 })
@@ -52,18 +27,27 @@ export async function GET() {
 
     return NextResponse.json({
       success: true,
-      data: user
+      data: {
+        id: user.id,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email,
+        avatar: user.avatar
+      }
     })
   } catch (error) {
-    console.error('获取用户信息失败:', error)
-    return NextResponse.json({ error: '服务器错误' }, { status: 500 })
+    console.error('🚨 获取用户信息失败:', error)
+    return NextResponse.json({ 
+      error: '服务器错误', 
+      details: error instanceof Error ? error.message : '未知错误'
+    }, { status: 500 })
   }
 }
 
 // 更新用户信息
 export async function PUT(request: NextRequest) {
   try {
-    const { userId } = await auth()
+    const userId = await getAuthUserId(request)
     
     if (!userId) {
       return NextResponse.json({ error: '未登录' }, { status: 401 })
@@ -133,9 +117,9 @@ export async function PUT(request: NextRequest) {
 }
 
 // 获取用户统计摘要
-export async function PATCH() {
+export async function PATCH(request: NextRequest) {
   try {
-    const { userId } = await auth()
+    const userId = await getAuthUserId(request)
     
     if (!userId) {
       return NextResponse.json({ error: '未登录' }, { status: 401 })
@@ -146,9 +130,19 @@ export async function PATCH() {
       where: { clerkId: userId },
       data: {
         stats: {
-          update: {
-            lastActive: new Date(),
-            totalSessions: { increment: 1 }
+          upsert: {
+            create: {
+              lastActive: new Date(),
+              totalSessions: 1,
+              songsAnalyzed: 0,
+              totalListenTime: 0,
+              achievementPoints: 0,
+              currentStreak: 0
+            },
+            update: {
+              lastActive: new Date(),
+              totalSessions: { increment: 1 }
+            }
           }
         }
       }

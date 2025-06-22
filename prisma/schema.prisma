@@ -42,6 +42,7 @@ enum SourceType {
   NETEASE 
   QQ 
   LOCAL 
+  JAMENDO
 }
 
 enum PrefDifficulty { 
